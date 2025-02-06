@@ -78,8 +78,15 @@ const viewEmployees = () => {
         }
     })
 }//done
+// function for addEmployee
+const getEmployees2 = async () => {
+    const result = await pool.query(`SELECT employee.first_name || ' ' || employee.last_name AS name FROM employee`);
+    return [...result.rows.map(row => row.name), 'Null'];
+}
 
-const addEmployee = () => {
+const addEmployee = async () => {
+    const role = await getRoles();
+    const employ = await getEmployees2();
     inquirer
     .prompt([
         {
@@ -96,55 +103,81 @@ const addEmployee = () => {
             type: 'list',
             message: "What is the employee's role?",
             name: 'role',
-            choices: [],
+            choices: role,
         },
         {
             type: 'list',
             message: "Who is the employee's manager?",
             name: 'manager',
-            choices: [],
+            choices: employ,
         }
     ])
-    .then((answer) => {
+    .then( async (answer) => {
         const query = `
             INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4);
         `;
-        pool.query(query, [answer.first, answer.last, answer.role, answer.manager],  (err, result) => {
+        const roleId = await getRoleIdByName(answer.role);
+        const managerId = answer.manager === 'Null' ? null: await getEployeeIdByName(answer.manager);
+        pool.query(query, [answer.first, answer.last, roleId, managerId],  (err, result) => {
             if(err) {
                 console.log(err);
                 process.exit();
             }
             else if(result){
-                console.log(`Added ${answer.role} to database`);
+                console.log(`Added ${answer.first} ${answer.last} to database`);
                 init();
             }
         });
     });
+}//done
+// functions for updateEmployeeRole
+const getEmployees = async () => {
+    const result = await pool.query(`SELECT employee.first_name || ' ' || employee.last_name AS name FROM employee`);
+    return result.rows.map(row => row.name);
+}
+// also used in addEmployee
+const getRoles = async () => {
+    const result = await pool.query('SELECT role.title FROM role');
+    return result.rows.map(row => row.title);
 }
 
-const updateEmployeeRole = () => {
+const getEployeeIdByName = async (employeeName) => {
+    const result = await pool.query(`SELECT id FROM employee WHERE employee.first_name || ' ' || employee.last_name = $1`, [employeeName]);
+    return result.rows[0].id;
+}
+
+const getRoleIdByName = async (roleName) => {
+    const result = await pool.query('SELECT id FROM role WHERE title = $1', [roleName]);
+    return result.rows[0].id;
+}
+
+const updateEmployeeRole = async () => {
+    const employ = await getEmployees();
+    const role = await getRoles();
     inquirer
     .prompt([
         {
             type: 'list',
             message: "Which employee's role would you like to update?",
             name: 'employeeChoosen',
-            choices: [],
+            choices: employ,
         },
         {
             type: 'list',
             message: "What is the employee's new role?",
             name: 'newRole',
-            choices: [],
+            choices: role,
         }
     ])
-    .then((answer) => {
+    .then( async (answer) => {
         const query = `
             UPDATE employee
             SET role_id = ($1)
             WHERE id = ($2);
         `;
-        pool.query(query, [answer.newRole, answer.employeeChoosen], (err, result) => {
+        const employeeId = await getEployeeIdByName(answer.employeeChoosen);
+        const roleId = await getRoleIdByName(answer.newRole);
+        pool.query(query, [roleId, employeeId], (err, result) => {
             if(err) {
                 console.log(err);
                 process.exit();
@@ -155,7 +188,7 @@ const updateEmployeeRole = () => {
             }
         });
     });
-}
+}//done
 
 const viewAllRoles = () => {
     const query = `
@@ -178,8 +211,19 @@ const viewAllRoles = () => {
         }
     })
 }//done
+// functions for addRole
+const getDepartments = async () => {
+    const result = await pool.query('SELECT department.name FROM department');
+    return result.rows.map(row => row.name);
+}
 
-const addRole = () => {
+const getDepartmentIdByName = async (departmentName) => {
+    const result = await pool.query('SELECT id FROM department WHERE name = $1', [departmentName]);
+    return result.rows[0].id;
+}
+
+const addRole = async () => {
+    const depo = await getDepartments();
     inquirer
     .prompt([
         {
@@ -188,20 +232,21 @@ const addRole = () => {
             name: 'role'
         },
         {
-            type: 'input',
+            type: 'integer',
             message: 'What is the salary of the role?',
             name: 'salary',
         },
         {
             type: 'list',
             message: 'Which department does the role belong to?',
-            choices: [],
+            choices: depo,
             name: 'department',
         }
     ])
-    .then((answer) => {
+    .then( async (answer) => {
         const query = `INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3);`
-        pool.query(query, [answer.role, answer.salary, answer.department], (err, result) => {
+        const depoId = await getDepartmentIdByName(answer.department);
+        pool.query(query, [answer.role, answer.salary, depoId], (err, result) => {
             if(err) {
                 console.log(err);
                 process.exit();
@@ -212,7 +257,7 @@ const addRole = () => {
             }
         });
     });
-}
+}//done
 
 const viewAllDepartments = () => {
     pool.query('SELECT * FROM department ', (err, result) => {
