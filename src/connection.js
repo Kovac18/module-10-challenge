@@ -5,7 +5,7 @@ import pg from 'pg';
 const { Pool } = pg;
 const pool = new Pool({
     user: 'postgres',
-    password: 'sqlSQL18!!',
+    password: process.env.DB_PW,
     host: 'localhost',
     database: process.env.DB_NAME,
     port: 5432,
